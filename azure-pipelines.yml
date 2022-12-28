@@ -1,0 +1,42 @@
+# Maven
+# Build your Java project and run tests with Apache Maven.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-16.04
+
+steps:
+- task: Maven@3
+  inputs:
+    mavenPomFile: 'app/pom.xml'
+    mavenOptions: '-Xmx3072m'
+    javaHomeOption: 'JDKVersion'
+    jdkVersionOption: '1.8'
+    jdkArchitectureOption: 'x64'
+    publishJUnitResults: true
+    testResultsFiles: '**/surefire-reports/TEST-*.xml'
+    goals: 'package'
+- task: Docker@2
+  inputs:
+        containerRegistry: 'azure-registry'
+        repository: 'todo-app'
+        command: 'buildAndPush'
+        Dockerfile: 'app/Dockerfile'
+        tags: '$(Version)'
+- task: CmdLine@2
+  inputs:
+      script: 'sed -i "s/tagVersion/$(Version)/g" k8s/api-deployment.yaml'
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'k8s/database-deployment.yaml'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'k8s/api-deployment.yaml'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'
